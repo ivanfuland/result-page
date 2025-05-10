@@ -11,6 +11,7 @@ export default function Home() {
   const [canCopy, setCanCopy] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{message: string, type: string} | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [pasteAreaText, setPasteAreaText] = useState('点击或在此处粘贴图片 (Ctrl+V / Cmd+V)');
 
   // n8n Webhook URL
   const N8N_WEBHOOK_URL = 'https://n8n.judyplan.com/webhook/image-ocr';
@@ -32,9 +33,7 @@ export default function Home() {
     if (event.target === pasteAreaRef.current) {
       // 清空 contenteditable div 的内容，避免图片直接渲染在里面
       setTimeout(() => { 
-        if (pasteAreaRef.current) {
-          pasteAreaRef.current.innerHTML = '处理中...请稍候'; 
-        }
+        setPasteAreaText('处理中...请稍候');
       }, 0);
     }
 
@@ -54,9 +53,7 @@ export default function Home() {
       event.preventDefault(); // 阻止默认的粘贴行为
       showStatus('图片已捕获，正在处理...', 'info');
       
-      if (pasteAreaRef.current) {
-        pasteAreaRef.current.innerHTML = '图片已捕获，处理中...';
-      }
+      setPasteAreaText('图片已捕获，处理中...');
 
       const reader = new FileReader();
       reader.onload = async function(e) {
@@ -147,9 +144,7 @@ export default function Home() {
   };
 
   const resetPasteArea = () => {
-    if (pasteAreaRef.current) {
-      pasteAreaRef.current.innerHTML = '点击或在此处粘贴图片 (Ctrl+V / Cmd+V)';
-    }
+    setPasteAreaText('点击或在此处粘贴图片 (Ctrl+V / Cmd+V)');
   };
 
   const copyToClipboard = async () => {
@@ -231,13 +226,12 @@ export default function Home() {
                 id="pasteArea"
                 ref={pasteAreaRef}
                 className="border border-2 border-dashed rounded p-3 d-flex align-items-center justify-content-center text-center bg-light text-secondary mb-3"
-                contentEditable="true"
                 style={{ height: '150px', cursor: 'pointer' }}
                 onClick={handleAreaClick}
                 onFocus={handleAreaFocus}
                 onBlur={handleAreaBlur}
               >
-                点击或在此处粘贴图片 (Ctrl+V / Cmd+V)
+                {pasteAreaText}
               </div>
 
               {previewVisible && previewSrc && (
