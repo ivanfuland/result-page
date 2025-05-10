@@ -170,7 +170,7 @@
 
         // 你的 n8n Webhook URL
         // 重要: 替换成你自己的 n8n Webhook URL!
-        const N8N_WEBHOOK_URL = 'https://n8n.judyplan.com/webhook-test/image-ocr'; 
+        const N8N_WEBHOOK_URL = 'https://n8n.judyplan.com/webhook/image-ocr'; 
 
         let currentImageBase64 = null;
 
@@ -257,8 +257,17 @@
                 if (response.ok) {
                     const resultData = await response.json();
                     if (resultData && typeof resultData.extractedText !== 'undefined') {
-                        ocrResultDiv.textContent = resultData.extractedText;
-                        copyButton.disabled = resultData.extractedText.length === 0;
+                        // 解码 URL 编码的文本
+                        let decodedText = '';
+                        try {
+                            decodedText = decodeURIComponent(resultData.extractedText);
+                        } catch (e) {
+                            // 如果解码失败 (例如，文本不是有效的URL编码格式), 仍然使用原始文本
+                            console.warn('解码 extractedText 失败，可能它不是URL编码的:', e);
+                            decodedText = resultData.extractedText;
+                        }
+                        ocrResultDiv.textContent = decodedText;
+                        copyButton.disabled = decodedText.length === 0;
                         showStatus('文字识别成功！', 'success', 3000);
                     } else {
                         throw new Error('n8n返回的响应格式不正确，缺少 extractedText 字段。');
