@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import { useRef, useState, useEffect } from 'react';
-import { Container, Row, Col, Button, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Button, Card, Form, Alert, Spinner } from 'react-bootstrap';
 import { isValidBase64Image } from '../utils/imageUtils';
 
 export default function Home() {
@@ -14,6 +14,8 @@ export default function Home() {
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [pasteAreaText, setPasteAreaText] = useState('拖拽图片到此处，点击选择文件，或粘贴图片 (Ctrl+V / Cmd+V)');
   const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [resultVisible, setResultVisible] = useState(false);
 
   // n8n Webhook URL
   const N8N_WEBHOOK_URL = 'https://n8n.judyplan.com/webhook/image-ocr';
@@ -23,7 +25,7 @@ export default function Home() {
     document.addEventListener('paste', handlePaste);
     
     // 初始化状态
-    showStatus('准备就绪，请上传图片。', 'info', 5000);
+    showStatus('准备就绪，请上传图片', 'info', 5000);
     
     return () => {
       document.removeEventListener('paste', handlePaste);
@@ -47,7 +49,7 @@ export default function Home() {
       event.preventDefault(); // 阻止默认的粘贴行为
       processImageFile(imageFile);
     } else {
-      showStatus('粘贴的内容不是图片，请粘贴图片文件。', 'error', 4000);
+      showStatus('粘贴的内容不是图片，请粘贴图片文件', 'danger', 4000);
     }
   };
   
@@ -81,7 +83,7 @@ export default function Home() {
       if (file.type.indexOf('image') !== -1) {
         processImageFile(file);
       } else {
-        showStatus('拖放的文件不是图片，请使用图片文件。', 'error', 4000);
+        showStatus('拖放的文件不是图片，请使用图片文件', 'danger', 4000);
       }
     }
   };
@@ -107,8 +109,10 @@ export default function Home() {
 
   // 统一处理图片文件
   const processImageFile = (file: File) => {
-    if (!file) return;
+    if (!file || isProcessing) return;
     
+    setIsProcessing(true);
+    setResultVisible(false); // 新识别过程开始时隐藏结果区域
     showStatus('图片已捕获，正在处理...', 'info');
     setPasteAreaText('图片已捕获，处理中...');
 
@@ -128,8 +132,9 @@ export default function Home() {
     };
     
     reader.onerror = function() {
-      showStatus('无法读取图片文件。', 'error');
+      showStatus('无法读取图片文件', 'danger');
       resetPasteArea();
+      setIsProcessing(false);
     };
     
     reader.readAsDataURL(file);
@@ -138,15 +143,17 @@ export default function Home() {
   const sendToN8n = async (imageBase64: string) => {
     // 检查webhook URL是否有效
     if (!N8N_WEBHOOK_URL || N8N_WEBHOOK_URL.includes('YOUR_N8N_WEBHOOK_URL')) {
-      showStatus('错误: 请在JS代码中配置你的n8n Webhook URL!', 'error', 10000);
+      showStatus('错误: 请在JS代码中配置你的n8n Webhook URL', 'danger', 10000);
       resetPasteArea();
+      setIsProcessing(false);
       return;
     }
 
     // 验证图片格式
     if (!isValidBase64Image(imageBase64)) {
-      showStatus('错误: 无效的图片格式', 'error', 5000);
+      showStatus('错误: 无效的图片格式', 'danger', 5000);
       resetPasteArea();
+      setIsProcessing(false);
       return;
     }
 
@@ -178,9 +185,10 @@ export default function Home() {
           }
           setOcrResult(decodedText);
           setCanCopy(decodedText.length > 0);
+          setResultVisible(decodedText.length > 0); // 只在有识别结果时显示结果区域
           showStatus('文字识别成功！', 'success', 3000);
         } else {
-          throw new Error('n8n返回的响应格式不正确，缺少 extractedText 字段。');
+          throw new Error('n8n返回的响应格式不正确，缺少 extractedText 字段');
         }
       } else {
         const errorText = await response.text();
@@ -190,9 +198,11 @@ export default function Home() {
       console.error('发送到n8n或处理响应时出错:', error);
       setOcrResult('');
       setCanCopy(false);
-      showStatus(`错误: ${error.message}`, 'error', 7000);
+      setResultVisible(false);
+      showStatus(`错误: ${error.message}`, 'danger', 7000);
     } finally {
       resetPasteArea();
+      setIsProcessing(false);
     }
   };
 
@@ -202,7 +212,7 @@ export default function Home() {
 
   const copyToClipboard = async () => {
     if (!ocrResult) {
-      showStatus('没有文字可复制。', 'info', 3000);
+      showStatus('没有文字可复制', 'info', 3000);
       return;
     }
 
@@ -211,7 +221,7 @@ export default function Home() {
       showStatus('文字已复制到剪贴板！', 'success', 3000);
     } catch (err) {
       console.error('复制失败:', err);
-      showStatus('复制失败。您的浏览器可能不支持或权限不足。', 'error', 5000);
+      showStatus('复制失败。您的浏览器可能不支持或权限不足', 'danger', 5000);
       // 可以考虑提供一个备选方案，比如手动选择文本
       tryManualCopy();
     }
@@ -227,7 +237,7 @@ export default function Home() {
       range.selectNodeContents(ocrResultElement);
       selection.removeAllRanges();
       selection.addRange(range);
-      showStatus('无法自动复制，请手动复制选中的文本 (Ctrl+C / Cmd+C)。', 'info', 7000);
+      showStatus('无法自动复制，请手动复制选中的文本 (Ctrl+C / Cmd+C)', 'info', 7000);
     }
   };
 
@@ -244,91 +254,125 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>粘贴图片进行文字识别</title>
-        <meta name="description" content="粘贴图片识别文字的应用" />
+        <title>图片文字识别 - OCR工具</title>
+        <meta name="description" content="使用AI技术识别图片中的文字" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Container className="py-4">
-        <Row className="justify-content-center">
-          <Col md={8} lg={6}>
-            <div className="bg-white p-4 rounded shadow-sm">
-              <h1 className="text-center mb-4">图片文字识别</h1>
-              
-              {/* 隐藏的文件输入 */}
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                style={{ display: 'none' }} 
-                accept="image/*" 
-                onChange={handleFileSelect}
-              />
-              
-              <div 
-                id="pasteArea"
-                ref={pasteAreaRef}
-                className={`border border-2 border-dashed rounded p-3 d-flex align-items-center justify-content-center text-center bg-light text-secondary mb-3 ${isDragging ? 'border-primary bg-light' : ''}`}
-                style={{ height: '150px', cursor: 'pointer' }}
-                onClick={triggerFileInput}
-                onDragEnter={handleDragEnter}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-              >
-                {pasteAreaText}
-              </div>
-
-              {previewVisible && previewSrc && (
-                <div className="text-center mb-3" id="previewContainer">
-                  <img 
-                    src={previewSrc}
-                    className="img-fluid rounded border" 
-                    alt="图片预览"
-                    style={{ 
-                      maxHeight: '300px', 
-                      maxWidth: '100%',
-                      display: 'inline-block' 
-                    }} 
+      <div className="bg-light min-vh-100 py-4">
+        <Container>
+          <Row className="justify-content-center">
+            <Col md={10} lg={8}>
+              <Card className="shadow-sm">
+                <Card.Body className="p-4">
+                  <h1 className="text-center mb-4 h3">智能文字识别工具</h1>
+                  
+                  {/* 隐藏的文件输入 */}
+                  <input 
+                    type="file" 
+                    ref={fileInputRef}
+                    style={{ display: 'none' }} 
+                    accept="image/*" 
+                    onChange={handleFileSelect}
                   />
-                </div>
-              )}
+                  
+                  <div 
+                    className={`
+                      d-flex flex-column 
+                      justify-content-center 
+                      align-items-center 
+                      text-center 
+                      p-4 
+                      mb-4
+                      rounded
+                      bg-white
+                      ${isDragging ? 'border-primary' : 'border'}
+                      border-2
+                      border-dashed
+                      position-relative
+                    `}
+                    style={{ 
+                      minHeight: "180px", 
+                      cursor: "pointer",
+                      transition: "all 0.2s ease-in-out" 
+                    }}
+                    onClick={triggerFileInput}
+                    onDragEnter={handleDragEnter}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    ref={pasteAreaRef}
+                  >
+                    <div className="display-4 mb-2 text-muted">
+                      {isDragging ? '📥' : '📷'}
+                    </div>
+                    <div className="text-muted">
+                      {pasteAreaText}
+                    </div>
+                    
+                    {isProcessing && (
+                      <div className="position-absolute top-0 start-0 w-100 h-100 bg-white bg-opacity-75 rounded d-flex flex-column justify-content-center align-items-center">
+                        <Spinner animation="border" variant="secondary" className="mb-2" />
+                        <span className="text-muted">处理中...</span>
+                      </div>
+                    )}
+                  </div>
 
-              <div className="mb-3">
-                <label htmlFor="ocrResult" className="form-label">识别结果:</label>
-                <div 
-                  id="ocrResult"
-                  className="form-control bg-light"
-                  style={{ 
-                    minHeight: '100px', 
-                    whiteSpace: 'pre-wrap', 
-                    fontFamily: 'monospace',
-                  }}
-                >
-                  {ocrResult}
-                </div>
-              </div>
+                  {previewVisible && previewSrc && (
+                    <div className="text-center mb-4">
+                      <img 
+                        src={previewSrc}
+                        alt="图片预览"
+                        className="img-fluid rounded border"
+                        style={{ maxHeight: "300px" }} 
+                      />
+                    </div>
+                  )}
 
-              <Button 
-                variant="success" 
-                onClick={copyToClipboard}
-                disabled={!canCopy}
-              >
-                复制文字
-              </Button>
+                  {resultVisible && (
+                    <div className="mt-4">
+                      <Form.Group className="mb-3">
+                        <Form.Label className="fw-medium">识别结果:</Form.Label>
+                        <div 
+                          id="ocrResult"
+                          className="form-control bg-light"
+                          style={{ 
+                            minHeight: '120px', 
+                            whiteSpace: 'pre-wrap', 
+                            fontFamily: 'monospace',
+                            overflow: 'auto'
+                          }}
+                        >
+                          {ocrResult}
+                        </div>
+                      </Form.Group>
+                      
+                      <Button 
+                        variant="secondary" 
+                        onClick={copyToClipboard}
+                        disabled={!canCopy}
+                        className="mt-1"
+                      >
+                        复制文字
+                      </Button>
+                    </div>
+                  )}
 
-              {statusMessage && (
-                <Alert 
-                  variant={statusMessage.type} 
-                  className="mt-3 text-center"
-                >
-                  {statusMessage.message}
-                </Alert>
-              )}
-            </div>
-          </Col>
-        </Row>
-      </Container>
+                  {statusMessage && (
+                    <Alert 
+                      variant={statusMessage.type}
+                      className="mt-4 mb-0"
+                    >
+                      {statusMessage.message}
+                    </Alert>
+                  )}
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        </Container>
+      </div>
     </>
   );
 } 
