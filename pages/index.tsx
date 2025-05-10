@@ -1,11 +1,12 @@
 import Head from 'next/head';
 import { useRef, useState, useEffect } from 'react';
 import { Container, Row, Col, Button, Alert } from 'react-bootstrap';
+import { isValidBase64Image } from '../utils/imageUtils';
 
 export default function Home() {
   const pasteAreaRef = useRef<HTMLDivElement>(null);
-  const previewRef = useRef<HTMLImageElement>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewSrc, setPreviewSrc] = useState<string>('');
   const [ocrResult, setOcrResult] = useState('');
   const [canCopy, setCanCopy] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{message: string, type: string} | null>(null);
@@ -62,11 +63,10 @@ export default function Home() {
         const result = e.target?.result as string;
         setImageBase64(result);
         
-        if (previewRef.current) {
-          previewRef.current.src = result;
-        }
-        
+        // 直接设置预览图片的src
+        setPreviewSrc(result);
         setPreviewVisible(true);
+        
         setOcrResult('');
         setCanCopy(false);
 
@@ -89,6 +89,13 @@ export default function Home() {
     // 检查webhook URL是否有效
     if (!N8N_WEBHOOK_URL || N8N_WEBHOOK_URL.includes('YOUR_N8N_WEBHOOK_URL')) {
       showStatus('错误: 请在JS代码中配置你的n8n Webhook URL!', 'error', 10000);
+      resetPasteArea();
+      return;
+    }
+
+    // 验证图片格式
+    if (!isValidBase64Image(imageBase64)) {
+      showStatus('错误: 无效的图片格式', 'error', 5000);
       resetPasteArea();
       return;
     }
@@ -233,13 +240,17 @@ export default function Home() {
                 点击或在此处粘贴图片 (Ctrl+V / Cmd+V)
               </div>
 
-              {previewVisible && (
-                <div className="text-center mb-3">
+              {previewVisible && previewSrc && (
+                <div className="text-center mb-3" id="previewContainer">
                   <img 
-                    ref={previewRef}
+                    src={previewSrc}
                     className="img-fluid rounded border" 
                     alt="图片预览"
-                    style={{ maxHeight: '200px' }} 
+                    style={{ 
+                      maxHeight: '300px', 
+                      maxWidth: '100%',
+                      display: 'inline-block' 
+                    }} 
                   />
                 </div>
               )}

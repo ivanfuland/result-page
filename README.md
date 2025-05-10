@@ -72,19 +72,22 @@ yarn start
 3. 选择并连接你的Git仓库提供商
 4. 选择包含本应用的仓库
 5. 配置构建设置：
-   - 构建命令：`npm run build`
+   - 框架预设：选择 `Next.js (Static HTML Export)`
+   - 构建命令：系统会自动填入 `npx next build`
    - 构建输出目录：`out`
-   - Node.js版本：至少16.x
+   - 根目录：保持默认值 `/`
+   - Node.js版本：选择16.x或更高版本
 6. 点击"保存并部署"
 
 ### 自定义域名
 
-1. 部署完成后，在项目页面点击"自定义域"
-2. 按照Cloudflare提供的指南添加你的域名
-3. 配置DNS记录指向你的Cloudflare Pages网站
+1. 部署完成后，Cloudflare会提供一个默认域名（类似于`项目名称.pages.dev`）
+2. 如需配置自定义域名，在项目页面点击"自定义域"选项
+3. 按照Cloudflare提供的指南添加你的域名
+4. 配置DNS记录指向你的Cloudflare Pages网站
 
 ### 注意事项
 
 - 本应用已经配置为静态导出，适合在Cloudflare Pages上运行
-- 如果API请求跨域，请确保n8n服务配置了正确的CORS设置
+- 如果API请求跨域，请确保n8n服务配置了正确的CORS设置，允许来自你的Cloudflare Pages域名的请求
 - 每次提交代码到主分支时，Cloudflare Pages会自动重新部署 

@@ -32,13 +32,13 @@
 
 - **项目名称**：image-ocr-app（或您喜欢的名称）
 - **生产分支**：main（或您的主分支名）
-- **构建命令**：`npm run build`
+- **框架预设**：选择 `Next.js (Static HTML Export)`
+- **构建命令**：系统会自动填入 `npx next build`
 - **构建输出目录**：`out`
 - **根目录**：`/`（保持默认）
 - **环境变量**：无需添加
 
-在高级选项中：
-
+在高级选项中（如需要）：
 - **Node.js版本**：选择16.x或更高版本
 
 ### 5. 开始构建与部署
@@ -51,7 +51,7 @@
 
 ### 7. 测试部署的应用
 
-部署完成后，Cloudflare会提供一个默认域名（如`https://your-project-name.pages.dev`）。点击该链接确认应用是否正常运行。
+部署完成后，Cloudflare会提供一个默认域名（如`项目名称.pages.dev`）。点击该链接确认应用是否正常运行。
 
 ### 8. 配置自定义域名（可选）
 
@@ -61,6 +61,14 @@
 2. 点击"设置自定义域"按钮
 3. 输入您的域名
 4. 按照向导完成DNS设置
+
+## 构建过程说明
+
+当选择框架预设为`Next.js (Static HTML Export)`时，Cloudflare会自动执行以下步骤：
+
+1. 安装项目依赖（`npm install`）
+2. 执行构建命令（`npx next build`）
+3. 将构建输出目录（`out`）中的文件部署到Cloudflare的全球网络
 
 ## 常见问题排查
 
@@ -79,7 +87,7 @@
 
 ### API请求失败
 
-- 确认n8n服务器已配置允许Cloudflare Pages域名的CORS请求
+- 确认n8n服务器已配置允许Cloudflare Pages域名的CORS请求（例如`项目名称.pages.dev`）
 - 检查浏览器控制台是否有跨域错误
 
 ## 自动化部署
