@@ -5,13 +5,15 @@ import { isValidBase64Image } from '../utils/imageUtils';
 
 export default function Home() {
   const pasteAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewSrc, setPreviewSrc] = useState<string>('');
   const [ocrResult, setOcrResult] = useState('');
   const [canCopy, setCanCopy] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{message: string, type: string} | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
-  const [pasteAreaText, setPasteAreaText] = useState('点击或在此处粘贴图片 (Ctrl+V / Cmd+V)');
+  const [pasteAreaText, setPasteAreaText] = useState('拖拽图片到此处，点击选择文件，或粘贴图片 (Ctrl+V / Cmd+V)');
+  const [isDragging, setIsDragging] = useState(false);
 
   // n8n Webhook URL
   const N8N_WEBHOOK_URL = 'https://n8n.judyplan.com/webhook/image-ocr';
@@ -21,7 +23,7 @@ export default function Home() {
     document.addEventListener('paste', handlePaste);
     
     // 初始化状态
-    showStatus('准备就绪，请粘贴图片。', 'info', 5000);
+    showStatus('准备就绪，请上传图片。', 'info', 5000);
     
     return () => {
       document.removeEventListener('paste', handlePaste);
@@ -29,14 +31,6 @@ export default function Home() {
   }, []);
 
   const handlePaste = async (event: ClipboardEvent) => {
-    // 检查粘贴内容是否来自 contenteditable div 本身，如果是，则忽略
-    if (event.target === pasteAreaRef.current) {
-      // 清空 contenteditable div 的内容，避免图片直接渲染在里面
-      setTimeout(() => { 
-        setPasteAreaText('处理中...请稍候');
-      }, 0);
-    }
-
     const items = event.clipboardData?.items;
     let imageFile = null;
 
@@ -51,35 +45,94 @@ export default function Home() {
 
     if (imageFile) {
       event.preventDefault(); // 阻止默认的粘贴行为
-      showStatus('图片已捕获，正在处理...', 'info');
-      
-      setPasteAreaText('图片已捕获，处理中...');
-
-      const reader = new FileReader();
-      reader.onload = async function(e) {
-        const result = e.target?.result as string;
-        setImageBase64(result);
-        
-        // 直接设置预览图片的src
-        setPreviewSrc(result);
-        setPreviewVisible(true);
-        
-        setOcrResult('');
-        setCanCopy(false);
-
-        await sendToN8n(result);
-      };
-      
-      reader.onerror = function() {
-        showStatus('无法读取图片文件。', 'error');
-        resetPasteArea();
-      };
-      
-      reader.readAsDataURL(imageFile);
+      processImageFile(imageFile);
     } else {
       showStatus('粘贴的内容不是图片，请粘贴图片文件。', 'error', 4000);
-      resetPasteArea();
     }
+  };
+  
+  // 处理拖拽事件
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type.indexOf('image') !== -1) {
+        processImageFile(file);
+      } else {
+        showStatus('拖放的文件不是图片，请使用图片文件。', 'error', 4000);
+      }
+    }
+  };
+  
+  // 处理文件选择
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      processImageFile(files[0]);
+      // 清空input，以便于重复选择同一个文件
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+  
+  // 触发文件选择对话框
+  const triggerFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // 统一处理图片文件
+  const processImageFile = (file: File) => {
+    if (!file) return;
+    
+    showStatus('图片已捕获，正在处理...', 'info');
+    setPasteAreaText('图片已捕获，处理中...');
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const result = e.target?.result as string;
+      setImageBase64(result);
+      
+      // 设置预览图片
+      setPreviewSrc(result);
+      setPreviewVisible(true);
+      
+      setOcrResult('');
+      setCanCopy(false);
+
+      await sendToN8n(result);
+    };
+    
+    reader.onerror = function() {
+      showStatus('无法读取图片文件。', 'error');
+      resetPasteArea();
+    };
+    
+    reader.readAsDataURL(file);
   };
 
   const sendToN8n = async (imageBase64: string) => {
@@ -107,7 +160,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           imageData: imageBase64,
-          fileName: `pasted_image_${Date.now()}.png` // 可选的文件名
+          fileName: `image_${Date.now()}.png` // 可选的文件名
         }),
       });
 
@@ -144,7 +197,7 @@ export default function Home() {
   };
 
   const resetPasteArea = () => {
-    setPasteAreaText('点击或在此处粘贴图片 (Ctrl+V / Cmd+V)');
+    setPasteAreaText('拖拽图片到此处，点击选择文件，或粘贴图片 (Ctrl+V / Cmd+V)');
   };
 
   const copyToClipboard = async () => {
@@ -188,25 +241,6 @@ export default function Home() {
     }
   };
 
-  const handleAreaClick = () => {
-    if (pasteAreaRef.current) {
-      pasteAreaRef.current.focus();
-      showStatus('请使用 Ctrl+V (或 Cmd+V) 粘贴图片。', 'info', 3000);
-    }
-  };
-
-  const handleAreaFocus = () => {
-    if (pasteAreaRef.current) {
-      pasteAreaRef.current.classList.add('active');
-    }
-  };
-
-  const handleAreaBlur = () => {
-    if (pasteAreaRef.current) {
-      pasteAreaRef.current.classList.remove('active');
-    }
-  };
-
   return (
     <>
       <Head>
@@ -220,16 +254,27 @@ export default function Home() {
         <Row className="justify-content-center">
           <Col md={8} lg={6}>
             <div className="bg-white p-4 rounded shadow-sm">
-              <h1 className="text-center mb-4">粘贴图片进行文字识别</h1>
+              <h1 className="text-center mb-4">图片文字识别</h1>
+              
+              {/* 隐藏的文件输入 */}
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                style={{ display: 'none' }} 
+                accept="image/*" 
+                onChange={handleFileSelect}
+              />
               
               <div 
                 id="pasteArea"
                 ref={pasteAreaRef}
-                className="border border-2 border-dashed rounded p-3 d-flex align-items-center justify-content-center text-center bg-light text-secondary mb-3"
+                className={`border border-2 border-dashed rounded p-3 d-flex align-items-center justify-content-center text-center bg-light text-secondary mb-3 ${isDragging ? 'border-primary bg-light' : ''}`}
                 style={{ height: '150px', cursor: 'pointer' }}
-                onClick={handleAreaClick}
-                onFocus={handleAreaFocus}
-                onBlur={handleAreaBlur}
+                onClick={triggerFileInput}
+                onDragEnter={handleDragEnter}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
               >
                 {pasteAreaText}
               </div>
