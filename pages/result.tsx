@@ -39,7 +39,6 @@ export default function Result() {
         <title>识别结果</title>
         <meta name="description" content="图片文字识别结果" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <Container className="py-4">

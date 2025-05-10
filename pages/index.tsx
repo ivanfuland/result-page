@@ -257,7 +257,6 @@ export default function Home() {
         <title>图片文字识别 - OCR工具</title>
         <meta name="description" content="使用AI技术识别图片中的文字" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <div className="bg-light min-vh-100 py-4">
