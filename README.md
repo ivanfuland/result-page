@@ -43,7 +43,7 @@ yarn dev
 在使用前，请确保n8n工作流已经配置好。默认Webhook URL为：
 
 ```
-https://n8n.judyplan.com/webhook/image-ocr
+N8N_WEBHOOK_URL
 ```
 
 如需修改，请在 `pages/index.tsx` 文件中更新 `N8N_WEBHOOK_URL` 变量。
